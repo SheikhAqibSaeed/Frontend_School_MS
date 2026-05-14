@@ -196,6 +196,7 @@ model Subject {
   updatedAt   DateTime @updatedAt
 
   classSubjects ClassSubject[]
+  examResults   ExamResult[]
 }
 
 model ClassSubject {
