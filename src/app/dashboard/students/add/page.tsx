@@ -4,34 +4,15 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { createStudent } from '@/services/api/students.api';
 import { listClasses, listSections } from '@/services/api/academics.api';
+import { studentFormSchema, studentFormToApi, type StudentFormValues } from '@/lib/student-schema';
+import { StudentFormFields } from '@/components/forms/StudentFormFields';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-
-const schema = z.object({
-  admissionNo: z.string().min(1, 'Required'),
-  firstName: z.string().min(1, 'Required'),
-  lastName: z.string().min(1, 'Required'),
-  dateOfBirth: z.string().min(1, 'Required'),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']),
-  classId: z.string().min(1, 'Pick a class'),
-  sectionId: z.string().optional(),
-});
-
-type FormValues = z.infer<typeof schema>;
+import { Form } from '@/components/ui/form';
 
 export default function AddStudentPage() {
   const router = useRouter();
@@ -46,10 +27,11 @@ export default function AddStudentPage() {
     queryFn: () => listSections({ limit: 200 }),
   });
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+  const form = useForm<StudentFormValues>({
+    resolver: zodResolver(studentFormSchema),
     defaultValues: {
       admissionNo: '',
+      rollNumber: '',
       firstName: '',
       lastName: '',
       dateOfBirth: '',
@@ -64,188 +46,56 @@ export default function AddStudentPage() {
   const sectionOptions = useMemo(() => {
     const items = sectionsData?.items ?? [];
     if (!classId) return [];
-    return items.filter((s) => {
-      const c = s.class as { id?: string } | undefined;
-      return c?.id === classId;
-    });
+    return items
+      .filter((s) => {
+        const c = s.class as { id?: string } | undefined;
+        return c?.id === classId;
+      })
+      .map((s) => ({ id: String(s.id), name: String(s.name ?? s.id) }));
   }, [sectionsData, classId]);
 
+  const classes = useMemo(
+    () =>
+      (classesData?.items ?? []).map((c) => ({
+        id: String(c.id),
+        name: String(c.name ?? c.id),
+      })),
+    [classesData],
+  );
+
   const mutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      createStudent({
-        admissionNo: values.admissionNo,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        dateOfBirth: new Date(values.dateOfBirth).toISOString(),
-        gender: values.gender,
-        classId: values.classId,
-        sectionId: values.sectionId || undefined,
-      }),
-    onSuccess: (data) => {
+    mutationFn: (values: StudentFormValues) => createStudent(studentFormToApi(values)),
+    onSuccess: (row) => {
       toast.success('Student created');
-      router.replace(`/admin/students/${String(data.id)}`);
+      router.push(`/admin/students/${String(row.id)}`);
     },
-    onError: (err: Error) => toast.error(err.message ?? 'Could not create student'),
+    onError: (err: Error) => toast.error(err.message ?? 'Create failed'),
   });
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Add student</h1>
-          <p className="text-muted-foreground">Creates a student record for the active school.</p>
-        </div>
-        <Button variant="outline" type="button" onClick={() => router.push('/admin/students')}>
-          Back to list
-        </Button>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Add student</h1>
+        <p className="text-muted-foreground">Admission, class placement, and guardian details.</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Details</CardTitle>
-          <CardDescription>Fields match the backend `CreateStudentBody` contract.</CardDescription>
+          <CardTitle>New student</CardTitle>
+          <CardDescription>All guardian information is stored on the student profile.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="admissionNo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Admission number</FormLabel>
-                    <FormControl>
-                      <Input autoComplete="off" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="firstName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="lastName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-6">
+              <StudentFormFields form={form} classes={classes} sectionOptions={sectionOptions} />
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => router.push('/admin/students')}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={mutation.isPending}>
+                  {mutation.isPending ? 'Creating…' : 'Create student'}
+                </Button>
               </div>
-              <FormField
-                control={form.control}
-                name="dateOfBirth"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date of birth</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="gender"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Gender</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="MALE">Male</SelectItem>
-                        <SelectItem value="FEMALE">Female</SelectItem>
-                        <SelectItem value="OTHER">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="classId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Class</FormLabel>
-                    <Select
-                      onValueChange={(v) => {
-                        field.onChange(v);
-                        form.setValue('sectionId', '');
-                      }}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select class" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {(classesData?.items ?? []).map((c) => (
-                          <SelectItem key={String(c.id)} value={String(c.id)}>
-                            {String(c.name ?? c.id)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="sectionId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Section (optional)</FormLabel>
-                    <Select
-                      disabled={!classId || sectionOptions.length === 0}
-                      onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}
-                      value={field.value ? field.value : '__none__'}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={classId ? 'Select section' : 'Pick a class first'} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {sectionOptions.map((s) => (
-                          <SelectItem key={String(s.id)} value={String(s.id)}>
-                            {String(s.name ?? s.id)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? 'Saving…' : 'Create student'}
-              </Button>
             </form>
           </Form>
         </CardContent>

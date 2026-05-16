@@ -51,7 +51,14 @@ export async function middleware(request: NextRequest) {
 
   const authed = await isUiSessionValid(request);
 
-  if ((path.startsWith('/dashboard') || path.startsWith('/admin')) && !authed) {
+  const protectedPrefixes = ['/dashboard', '/admin', '/principal', '/teacher', '/student', '/accountant', '/librarian', '/transport'];
+  const isProtected = protectedPrefixes.some((p) => path === p || path.startsWith(`${p}/`));
+
+  if (path === '/forbidden' && !authed) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  if (isProtected && !authed) {
     const login = new URL('/login', request.url);
     login.searchParams.set('from', path);
     return NextResponse.redirect(login);
@@ -68,10 +75,23 @@ export const config = {
   matcher: [
     '/dashboard/:path*',
     '/admin/:path*',
+    '/principal',
+    '/principal/:path*',
+    '/teacher',
+    '/teacher/:path*',
+    '/student',
+    '/student/:path*',
+    '/accountant',
+    '/accountant/:path*',
+    '/librarian',
+    '/librarian/:path*',
+    '/transport',
+    '/transport/:path*',
     '/login',
     '/register',
     '/forgot-password',
     '/reset-password',
+    '/forbidden',
     '/api/:path*',
   ],
 };

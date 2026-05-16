@@ -18,7 +18,7 @@ export function useAuth() {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: (primaryRole ?? 'SCHOOL_ADMIN') as string,
+        role: (primaryRole ?? 'PRINCIPAL') as string,
         isActive: true,
       }
     : null;

@@ -4,44 +4,22 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { deleteTeacher, getTeacher, updateTeacher } from '@/services/api/teachers.api';
+import {
+  teacherFormSchema,
+  teacherFormToApi,
+  teacherRecordToForm,
+  type TeacherFormValues,
+} from '@/lib/teacher-schema';
+import { TeacherFormFields } from '@/components/forms/TeacherFormFields';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Form } from '@/components/ui/form';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-
-const schema = z.object({
-  email: z.string().email(),
-  firstName: z.string().min(1, 'Required'),
-  lastName: z.string().min(1, 'Required'),
-  phone: z.string().optional(),
-  employeeNo: z.string().min(1, 'Required'),
-  joiningDate: z.string().min(1, 'Required'),
-  qualification: z.string().optional(),
-  specialization: z.string().optional(),
-  isActive: z.enum(['true', 'false']),
-});
-
-type FormValues = z.infer<typeof schema>;
-
-function joiningDateInputValue(raw: unknown): string {
-  if (raw == null) return '';
-  if (typeof raw === 'string') return raw.slice(0, 10);
-  return '';
-}
 
 export default function TeacherProfilePage() {
   const params = useParams();
@@ -56,66 +34,32 @@ export default function TeacherProfilePage() {
     enabled: Boolean(id),
   });
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      email: '',
-      firstName: '',
-      lastName: '',
-      phone: '',
-      employeeNo: '',
-      joiningDate: '',
-      qualification: '',
-      specialization: '',
-      isActive: 'true',
-    },
+  const form = useForm<TeacherFormValues>({
+    resolver: zodResolver(teacherFormSchema),
+    defaultValues: teacherRecordToForm({}),
   });
 
   useEffect(() => {
-    if (!data) return;
-    const user = data.user as Record<string, unknown> | undefined;
-    form.reset({
-      email: String(user?.email ?? ''),
-      firstName: String(user?.firstName ?? ''),
-      lastName: String(user?.lastName ?? ''),
-      phone: user?.phone != null ? String(user.phone) : '',
-      employeeNo: String(data.employeeNo ?? ''),
-      joiningDate: joiningDateInputValue(data.joiningDate),
-      qualification: data.qualification != null ? String(data.qualification) : '',
-      specialization: data.specialization != null ? String(data.specialization) : '',
-      isActive: data.isActive === false ? 'false' : 'true',
-    });
+    if (data) form.reset(teacherRecordToForm(data));
   }, [data, form]);
 
   const updateMutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      updateTeacher(id, {
-        email: values.email,
-        firstName: values.firstName,
-        lastName: values.lastName,
-        phone: values.phone?.trim() || undefined,
-        employeeNo: values.employeeNo,
-        joiningDate: new Date(values.joiningDate).toISOString(),
-        qualification: values.qualification?.trim() || undefined,
-        specialization: values.specialization?.trim() || undefined,
-        isActive: values.isActive === 'true',
-      }),
+    mutationFn: (values: TeacherFormValues) => updateTeacher(id, teacherFormToApi(values, false)),
     onSuccess: () => {
       toast.success('Teacher updated');
       void queryClient.invalidateQueries({ queryKey: ['teachers', id] });
       void queryClient.invalidateQueries({ queryKey: ['teachers'] });
     },
-    onError: (err: Error) => toast.error(err.message ?? 'Update failed'),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteTeacher(id),
     onSuccess: () => {
       toast.success('Teacher deactivated');
-      void queryClient.invalidateQueries({ queryKey: ['teachers'] });
       router.push('/admin/teachers');
     },
-    onError: (err: Error) => toast.error(err.message ?? 'Delete failed'),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -123,18 +67,15 @@ export default function TeacherProfilePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Teacher profile</h1>
-          <p className="text-muted-foreground">Edit details or deactivate this teacher.</p>
+          <p className="text-muted-foreground">Employment, qualifications, and account details.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" type="button" onClick={() => router.push('/admin/teachers')}>
-            Back to teachers
-          </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push('/admin/teachers')}>Back</Button>
           <Button
             variant="outline"
-            type="button"
-            className="text-red-600 hover:bg-red-50"
+            className="text-red-600"
             onClick={() => setConfirmDelete(true)}
-            disabled={deleteMutation.isPending || !data}
+            disabled={!data}
           >
             Deactivate
           </Button>
@@ -146,7 +87,7 @@ export default function TeacherProfilePage() {
         onClose={() => setConfirmDelete(false)}
         onConfirm={() => deleteMutation.mutate()}
         title="Deactivate teacher"
-        message="This marks the teacher as inactive. You can set them active again from this form later."
+        message="Soft-deletes this teacher. They will lose access to assigned classes."
         confirmText="Deactivate"
         variant="danger"
       />
@@ -154,10 +95,10 @@ export default function TeacherProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle>Record</CardTitle>
-          <CardDescription>ID: {id || '—'}</CardDescription>
+          <CardDescription>ID: {id}</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && <Skeleton className="h-80 w-full" />}
+          {isLoading && <Skeleton className="h-96 w-full" />}
           {error && (
             <Alert variant="destructive">
               <AlertTitle>Error</AlertTitle>
@@ -166,134 +107,8 @@ export default function TeacherProfilePage() {
           )}
           {data && (
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((v) => updateMutation.mutate(v))} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First name</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last name</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="employeeNo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Employee number</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="joiningDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Joining date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="qualification"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Qualification</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="specialization"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Specialization</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="isActive"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="true">Active</SelectItem>
-                          <SelectItem value="false">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <form onSubmit={form.handleSubmit((v) => updateMutation.mutate(v))} className="space-y-6">
+                <TeacherFormFields form={form} showStatus />
                 <Button type="submit" disabled={updateMutation.isPending}>
                   {updateMutation.isPending ? 'Saving…' : 'Save changes'}
                 </Button>

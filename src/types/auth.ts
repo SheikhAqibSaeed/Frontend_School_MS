@@ -1,10 +1,9 @@
 export type UserRole =
   | 'SUPER_ADMIN'
-  | 'SCHOOL_ADMIN'
+  | 'PRINCIPAL'
   | 'TEACHER'
   | 'STUDENT'
   | 'ACCOUNTANT'
-  | 'RECEPTIONIST'
   | 'LIBRARIAN'
   | 'TRANSPORT_MANAGER';
 

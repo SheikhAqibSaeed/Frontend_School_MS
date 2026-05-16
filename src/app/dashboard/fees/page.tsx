@@ -33,9 +33,14 @@ export default function FeesPage() {
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
   const [form, setForm] = useState({
     name: '',
+    feeType: 'MONTHLY_FEE',
     amount: '',
-    frequency: 'YEARLY',
+    frequency: 'MONTHLY',
     classId: '',
+    academicYear: '',
+    dueDay: '',
+    lateFeeAmount: '',
+    remarks: '',
     isActive: 'true',
   });
 
@@ -60,8 +65,13 @@ export default function FeesPage() {
       if (Number.isNaN(amt) || amt < 0) throw new Error('Invalid amount');
       const body: Record<string, unknown> = {
         name: form.name.trim(),
+        feeType: form.feeType.trim() || undefined,
         amount: amt,
-        frequency: form.frequency.trim() || 'CUSTOM',
+        frequency: form.frequency.trim() || 'MONTHLY',
+        academicYear: form.academicYear.trim() || undefined,
+        dueDay: form.dueDay.trim() ? Number(form.dueDay) : undefined,
+        lateFeeAmount: form.lateFeeAmount.trim() ? Number(form.lateFeeAmount) : undefined,
+        remarks: form.remarks.trim() || undefined,
         isActive: form.isActive === 'true',
       };
       if (form.classId) body.classId = form.classId;
@@ -90,7 +100,18 @@ export default function FeesPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ name: '', amount: '', frequency: 'YEARLY', classId: '', isActive: 'true' });
+    setForm({
+      name: '',
+      feeType: 'MONTHLY_FEE',
+      amount: '',
+      frequency: 'MONTHLY',
+      classId: '',
+      academicYear: '',
+      dueDay: '',
+      lateFeeAmount: '',
+      remarks: '',
+      isActive: 'true',
+    });
     setModalOpen(true);
   };
 
@@ -101,11 +122,21 @@ export default function FeesPage() {
       raw != null && typeof raw === 'object' && 'toString' in raw && typeof raw.toString === 'function'
         ? raw.toString()
         : String(raw ?? '');
+    const late = row.lateFeeAmount as { toString?: () => string } | number | string | undefined;
+    const lateStr =
+      late != null && typeof late === 'object' && 'toString' in late && typeof late.toString === 'function'
+        ? late.toString()
+        : String(late ?? '');
     setForm({
       name: String(row.name ?? ''),
+      feeType: String(row.feeType ?? 'MONTHLY_FEE'),
       amount: amountStr,
-      frequency: String(row.frequency ?? 'YEARLY'),
+      frequency: String(row.frequency ?? 'MONTHLY'),
       classId: row.classId ? String(row.classId) : '',
+      academicYear: row.academicYear != null ? String(row.academicYear) : '',
+      dueDay: row.dueDay != null ? String(row.dueDay) : '',
+      lateFeeAmount: lateStr,
+      remarks: row.remarks != null ? String(row.remarks) : '',
       isActive: row.isActive === false ? 'false' : 'true',
     });
     setModalOpen(true);
@@ -169,6 +200,20 @@ export default function FeesPage() {
       >
         <div className="space-y-4">
           <Input label="Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <LabeledSelect
+            label="Fee type"
+            value={form.feeType}
+            onChange={(e) => setForm({ ...form, feeType: e.target.value })}
+            options={[
+              { value: 'ADMISSION_FEE', label: 'Admission fee' },
+              { value: 'MONTHLY_FEE', label: 'Monthly fee' },
+              { value: 'EXAM_FEE', label: 'Exam fee' },
+              { value: 'TRANSPORT_FEE', label: 'Transport fee' },
+              { value: 'LIBRARY_FEE', label: 'Library fee' },
+              { value: 'FINE', label: 'Fine' },
+              { value: 'OTHER', label: 'Other' },
+            ]}
+          />
           <Input
             label="Amount *"
             type="number"
@@ -177,17 +222,48 @@ export default function FeesPage() {
             value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
           />
-          <Input
+          <LabeledSelect
             label="Frequency *"
             value={form.frequency}
             onChange={(e) => setForm({ ...form, frequency: e.target.value })}
-            placeholder="e.g. YEARLY, TERM, MONTHLY"
+            options={[
+              { value: 'ONE_TIME', label: 'One time' },
+              { value: 'MONTHLY', label: 'Monthly' },
+              { value: 'QUARTERLY', label: 'Quarterly' },
+              { value: 'YEARLY', label: 'Yearly' },
+            ]}
           />
           <LabeledSelect
             label="Class (optional)"
             value={form.classId}
             onChange={(e) => setForm({ ...form, classId: e.target.value })}
             options={[{ value: '', label: 'All classes' }, ...classOptions]}
+          />
+          <Input
+            label="Academic year"
+            value={form.academicYear}
+            onChange={(e) => setForm({ ...form, academicYear: e.target.value })}
+          />
+          <Input
+            label="Due day (1–31)"
+            type="number"
+            min={1}
+            max={31}
+            value={form.dueDay}
+            onChange={(e) => setForm({ ...form, dueDay: e.target.value })}
+          />
+          <Input
+            label="Late fee"
+            type="number"
+            min={0}
+            step="0.01"
+            value={form.lateFeeAmount}
+            onChange={(e) => setForm({ ...form, lateFeeAmount: e.target.value })}
+          />
+          <Input
+            label="Remarks"
+            value={form.remarks}
+            onChange={(e) => setForm({ ...form, remarks: e.target.value })}
           />
           <LabeledSelect
             label="Status"
@@ -231,6 +307,7 @@ export default function FeesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Frequency</TableHead>
                     <TableHead>Active</TableHead>
@@ -247,6 +324,7 @@ export default function FeesPage() {
                     return (
                       <TableRow key={String(row.id)}>
                         <TableCell>{String(row.name ?? '')}</TableCell>
+                        <TableCell>{String(row.feeType ?? '—')}</TableCell>
                         <TableCell>{amt}</TableCell>
                         <TableCell>{String(row.frequency ?? '')}</TableCell>
                         <TableCell>{row.isActive === false ? 'No' : 'Yes'}</TableCell>

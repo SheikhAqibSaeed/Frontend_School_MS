@@ -28,9 +28,9 @@ apiClient.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      getState().logout();
+      await getState().logout();
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
+        window.location.assign('/login');
       }
     }
     const data = error.response?.data;

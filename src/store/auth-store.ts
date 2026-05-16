@@ -7,20 +7,22 @@ import { clearUiSessionCookie } from '@/lib/ui-session-cookie';
 
 function inferPrimaryRole(user: AuthUser): UserRole {
   if (user.isSuperAdmin) return 'SUPER_ADMIN';
-  const codes = user.roles ?? [];
+  const codes = (user.roles ?? []).map((c) => {
+    if (c === 'SCHOOL_ADMIN' || c === 'RECEPTIONIST' || c === 'PARENT') return 'PRINCIPAL';
+    return c;
+  }) as UserRole[];
   const order: UserRole[] = [
-    'SCHOOL_ADMIN',
+    'PRINCIPAL',
     'ACCOUNTANT',
     'TEACHER',
     'STUDENT',
-    'RECEPTIONIST',
     'LIBRARIAN',
     'TRANSPORT_MANAGER',
   ];
   for (const r of order) {
     if (codes.includes(r)) return r;
   }
-  return 'SCHOOL_ADMIN';
+  return 'PRINCIPAL';
 }
 
 type AuthState = {
@@ -35,7 +37,7 @@ type AuthState = {
     user: AuthUser;
   }) => void;
   setSchoolId: (schoolId: string | null) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -57,8 +59,8 @@ export const useAuthStore = create<AuthState>()(
         });
       },
       setSchoolId: (schoolId) => set({ schoolId }),
-      logout: () => {
-        void clearUiSessionCookie();
+      logout: async () => {
+        await clearUiSessionCookie();
         set({
           accessToken: null,
           refreshToken: null,

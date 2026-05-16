@@ -70,13 +70,54 @@ export async function deleteExam(id: string) {
   return unwrapData<Record<string, unknown>>(res.data as never);
 }
 
-export async function listMarks(params?: { page?: number; limit?: number; search?: string }) {
+export async function listMarks(params?: {
+  page?: number;
+  limit?: number;
+  examId?: string;
+  studentId?: string;
+  classId?: string;
+}) {
   const res = await apiClient.get<unknown>('/marks', { params });
   return unwrapList<Record<string, unknown>>(res.data as never);
 }
 
+export async function createMark(body: Record<string, unknown>) {
+  const res = await apiClient.post<unknown>('/marks', body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function updateMark(id: string, body: Record<string, unknown>) {
+  const res = await apiClient.patch<unknown>(`/marks/${id}`, body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
 export async function deleteMark(id: string) {
   const res = await apiClient.delete<unknown>(`/marks/${id}`);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function listResults(params?: { page?: number; limit?: number }) {
+  const res = await apiClient.get<unknown>('/results', { params });
+  return unwrapList<Record<string, unknown>>(res.data as never);
+}
+
+export async function listExamSchedules(params?: {
+  page?: number;
+  limit?: number;
+  examId?: string;
+  classId?: string;
+}) {
+  const res = await apiClient.get<unknown>('/exam-schedules', { params });
+  return unwrapList<Record<string, unknown>>(res.data as never);
+}
+
+export async function createExamSchedule(body: Record<string, unknown>) {
+  const res = await apiClient.post<unknown>('/exam-schedules', body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function deleteExamSchedule(id: string) {
+  const res = await apiClient.delete<unknown>(`/exam-schedules/${id}`);
   return unwrapData<Record<string, unknown>>(res.data as never);
 }
 
@@ -100,9 +141,24 @@ export async function deleteFeeStructure(id: string) {
   return unwrapData<Record<string, unknown>>(res.data as never);
 }
 
-export async function listInvoices(params?: { page?: number; limit?: number; search?: string }) {
+export async function listInvoices(params?: {
+  page?: number;
+  limit?: number;
+  studentId?: string;
+  status?: string;
+}) {
   const res = await apiClient.get<unknown>('/invoices', { params });
   return unwrapList<Record<string, unknown>>(res.data as never);
+}
+
+export async function createInvoice(body: Record<string, unknown>) {
+  const res = await apiClient.post<unknown>('/invoices', body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function updateInvoice(id: string, body: Record<string, unknown>) {
+  const res = await apiClient.patch<unknown>(`/invoices/${id}`, body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
 }
 
 export async function deleteInvoice(id: string) {
@@ -110,9 +166,19 @@ export async function deleteInvoice(id: string) {
   return unwrapData<Record<string, unknown>>(res.data as never);
 }
 
-export async function listPayments(params?: { page?: number; limit?: number; search?: string }) {
+export async function listPayments(params?: {
+  page?: number;
+  limit?: number;
+  studentId?: string;
+  invoiceId?: string;
+}) {
   const res = await apiClient.get<unknown>('/payments', { params });
   return unwrapList<Record<string, unknown>>(res.data as never);
+}
+
+export async function createPayment(body: Record<string, unknown>) {
+  const res = await apiClient.post<unknown>('/payments', body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
 }
 
 export async function deletePayment(id: string) {
@@ -130,13 +196,48 @@ export async function deleteTimetableSlot(id: string) {
   return unwrapData<Record<string, unknown>>(res.data as never);
 }
 
-export async function listHomework(params?: { page?: number; limit?: number; search?: string }) {
+export async function listHomework(params?: {
+  page?: number;
+  limit?: number;
+  classId?: string;
+  teacherId?: string;
+}) {
   const res = await apiClient.get<unknown>('/homework', { params });
   return unwrapList<Record<string, unknown>>(res.data as never);
 }
 
+export async function createHomework(body: Record<string, unknown>) {
+  const res = await apiClient.post<unknown>('/homework', body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function updateHomework(id: string, body: Record<string, unknown>) {
+  const res = await apiClient.patch<unknown>(`/homework/${id}`, body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
 export async function deleteHomework(id: string) {
   const res = await apiClient.delete<unknown>(`/homework/${id}`);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function listLibraryBooks(params?: { page?: number; limit?: number; search?: string }) {
+  const res = await apiClient.get<unknown>('/library/books', { params });
+  return unwrapList<Record<string, unknown>>(res.data as never);
+}
+
+export async function createLibraryBook(body: Record<string, unknown>) {
+  const res = await apiClient.post<unknown>('/library/books', body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function updateLibraryBook(id: string, body: Record<string, unknown>) {
+  const res = await apiClient.patch<unknown>(`/library/books/${id}`, body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function deleteLibraryBook(id: string) {
+  const res = await apiClient.delete<unknown>(`/library/books/${id}`);
   return unwrapData<Record<string, unknown>>(res.data as never);
 }
 

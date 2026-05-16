@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { RouterLink } from '@/components/common/RouterLink';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,7 +11,6 @@ import { Separator } from '@/components/ui/separator';
 
 export function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { logout, primaryRole, authUser } = useAuth();
   const items = useMemo(
     () => navItemsForSession(primaryRole, authUser?.permissions),
@@ -19,9 +18,9 @@ export function Sidebar() {
   );
   const homeHref = useMemo(() => dashboardHrefForRole(primaryRole), [primaryRole]);
 
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
+  const handleLogout = async () => {
+    await logout();
+    window.location.assign('/login');
   };
 
   return (

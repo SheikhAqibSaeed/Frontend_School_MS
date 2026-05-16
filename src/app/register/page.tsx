@@ -35,7 +35,13 @@ export default function RegisterPage() {
     lastName: '',
     phone: '',
     schoolId: '',
-    role: 'STUDENT' as 'ADMIN' | 'PRINCIPAL' | 'TEACHER' | 'STUDENT' | 'ACCOUNTANT' | 'LIBRARIAN',
+    role: 'STUDENT' as
+      | 'PRINCIPAL'
+      | 'TEACHER'
+      | 'STUDENT'
+      | 'ACCOUNTANT'
+      | 'LIBRARIAN'
+      | 'TRANSPORT_MANAGER',
   });
   const [error, setError] = useState('');
 
@@ -167,10 +173,10 @@ export default function RegisterPage() {
             options={[
               { value: 'STUDENT', label: 'Student' },
               { value: 'TEACHER', label: 'Teacher' },
-              { value: 'ADMIN', label: 'School admin' },
               { value: 'PRINCIPAL', label: 'Principal' },
               { value: 'ACCOUNTANT', label: 'Accountant' },
               { value: 'LIBRARIAN', label: 'Librarian' },
+              { value: 'TRANSPORT_MANAGER', label: 'Transport manager' },
             ]}
           />
 

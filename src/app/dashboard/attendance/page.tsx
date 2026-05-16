@@ -15,6 +15,27 @@ import { getStudents } from '@/services/api/students';
 import { getClasses } from '@/services/api/classes';
 import { formatDate } from '@/utils';
 
+function studentAdmissionNo(student: { admissionNo?: string; user?: { email?: string } } | null | undefined) {
+  if (!student) return '—';
+  if (student.admissionNo) return student.admissionNo;
+  return '—';
+}
+
+function studentDisplayName(
+  student: {
+    firstName?: string;
+    lastName?: string;
+    user?: { firstName?: string; lastName?: string };
+  } | null | undefined,
+) {
+  if (!student) return '—';
+  const parts = [student.firstName, student.lastName].filter(Boolean);
+  if (parts.length) return parts.join(' ');
+  const u = student.user;
+  const fromUser = [u?.firstName, u?.lastName].filter(Boolean);
+  return fromUser.length ? fromUser.join(' ') : '—';
+}
+
 export default function AttendancePage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [classFilter, setClassFilter] = useState('');
@@ -210,7 +231,7 @@ export default function AttendancePage() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student ID
+                    Admission no.
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Name
@@ -243,10 +264,10 @@ export default function AttendancePage() {
                   attendances.map((attendance: any) => (
                     <tr key={attendance.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {attendance.student?.studentId || '-'}
+                        {studentAdmissionNo(attendance.student)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {attendance.student?.user?.firstName} {attendance.student?.user?.lastName}
+                        {studentDisplayName(attendance.student)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {attendance.student?.class?.name || '-'}
@@ -321,7 +342,7 @@ export default function AttendancePage() {
               { value: '', label: 'Select Student' },
               ...students.map((s: any) => ({
                 value: s.id,
-                label: `${s.user?.firstName} ${s.user?.lastName} (${s.studentId})`,
+                label: `${studentDisplayName(s)} (${studentAdmissionNo(s)})`,
               })),
             ]}
             required
