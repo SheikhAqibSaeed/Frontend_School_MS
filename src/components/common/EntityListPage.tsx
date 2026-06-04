@@ -7,12 +7,13 @@ import { toast } from 'sonner';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { RouterLink } from '@/components/common/RouterLink';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/Button';
 import { DataTablePagination } from '@/components/common/DataTablePagination';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { PageHeader } from '@/components/common/PageHeader';
+import { QueryState } from '@/components/common/QueryState';
+import { parseApiError } from '@/lib/api/errors';
 
 type Row = Record<string, unknown>;
 
@@ -91,8 +92,7 @@ export function EntityListPage({
       void queryClient.invalidateQueries({ queryKey });
       toast.success('Record removed');
     },
-    onError: (e: Error) =>
-      toast.error((e as Error & { apiMessage?: string }).apiMessage ?? e.message ?? 'Delete failed'),
+    onError: (e: Error) => toast.error(parseApiError(e)),
   });
 
   const meta = data?.meta;
@@ -101,23 +101,20 @@ export function EntityListPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-          {description && <p className="text-muted-foreground">{description}</p>}
-        </div>
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={() => refetch()} disabled={isFetching}>
-            Refresh
-          </Button>
-          {addHref && (
+      <PageHeader
+        title={title}
+        description={description}
+        onRefresh={() => refetch()}
+        isRefreshing={isFetching}
+        action={
+          addHref ? (
             <Button type="button" onClick={() => router.push(addHref)}>
               <Plus className="mr-2 h-4 w-4" />
               Add
             </Button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       <ConfirmDialog
         isOpen={Boolean(pendingDelete)}
@@ -143,26 +140,14 @@ export function EntityListPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          )}
-          {error && (
-            <Alert variant="destructive">
-              <AlertTitle>Could not load</AlertTitle>
-              <AlertDescription>{(error as Error).message}</AlertDescription>
-            </Alert>
-          )}
-          {!isLoading && !error && data && data.items.length === 0 && (
-            <Alert>
-              <AlertTitle>No rows</AlertTitle>
-              <AlertDescription>Try another page, change page size, or add your first record.</AlertDescription>
-            </Alert>
-          )}
-          {!isLoading && !error && data && data.items.length > 0 && (
+          <QueryState
+            isLoading={isLoading}
+            error={error}
+            isEmpty={Boolean(data && data.items.length === 0)}
+            emptyTitle="No rows"
+            emptyDescription="Try another page, change page size, or add your first record."
+          >
+          {data && data.items.length > 0 && (
             <>
               <Table>
                 <TableHeader>
@@ -238,6 +223,7 @@ export function EntityListPage({
               />
             </>
           )}
+          </QueryState>
         </CardContent>
       </Card>
     </div>

@@ -3,8 +3,16 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { Download, FileStack, Plus, Printer } from 'lucide-react';
 import { createInvoice, deleteInvoice, listInvoices } from '@/services/api/academics.api';
+import {
+  downloadInvoicePdf,
+  downloadInvoicesPdfBundle,
+  invoiceRowToPdfData,
+  printInvoice,
+  printInvoicesBundle,
+  type InvoicePdfData,
+} from '@/lib/invoice-pdf';
 import { listStudents } from '@/services/api/students.api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -25,12 +33,27 @@ function dec(v: unknown): string {
   return String(v);
 }
 
+async function fetchAllInvoices() {
+  const limit = 100;
+  const first = await listInvoices({ page: 1, limit });
+  const all = [...first.items];
+  for (let p = 2; p <= (first.meta.totalPages || 1); p++) {
+    const next = await listInvoices({ page: p, limit });
+    all.push(...next.items);
+  }
+  return all;
+}
+
 export default function InvoicesPage() {
   const queryClient = useQueryClient();
+  const schoolName = 'School Management System';
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [modalOpen, setModalOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Row | null>(null);
+  const [bulkExportLoading, setBulkExportLoading] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [printQueue, setPrintQueue] = useState<InvoicePdfData[] | null>(null);
   const [form, setForm] = useState({
     studentId: '',
     dueDate: '',
@@ -51,7 +74,7 @@ export default function InvoicesPage() {
 
   const { data: studentsData } = useQuery({
     queryKey: ['students', 'inv-dd'],
-    queryFn: () => listStudents({ limit: 200 }),
+    queryFn: () => listStudents({ limit: 100 }),
   });
 
   const createMutation = useMutation({
@@ -89,6 +112,70 @@ export default function InvoicesPage() {
     onError: (e: Error) => toast.error(e.message ?? 'Delete failed'),
   });
 
+  const handleDownloadPdf = (row: Row) => {
+    try {
+      downloadInvoicePdf(invoiceRowToPdfData(row, schoolName));
+      toast.success('PDF downloaded');
+    } catch (e) {
+      toast.error((e as Error).message ?? 'PDF failed');
+    }
+  };
+
+  const handlePrint = (row: Row) => {
+    try {
+      printInvoice(invoiceRowToPdfData(row, schoolName));
+    } catch (e) {
+      toast.error((e as Error).message ?? 'Print failed');
+    }
+  };
+
+  const handleConfirmBulkPrint = () => {
+    if (!printQueue?.length) return;
+    try {
+      printInvoicesBundle(printQueue);
+      setPrintModalOpen(false);
+      setPrintQueue(null);
+    } catch (e) {
+      toast.error((e as Error).message ?? 'Print failed');
+    }
+  };
+
+  const handleDownloadAllPdf = async () => {
+    setBulkExportLoading(true);
+    try {
+      const all = await fetchAllInvoices();
+      if (!all.length) {
+        toast.error('No invoices to export');
+        return;
+      }
+      const pdfRows = all.map((row) => invoiceRowToPdfData(row, schoolName));
+      downloadInvoicesPdfBundle(pdfRows, `student-invoices-${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success(`Downloaded ${all.length} invoice(s) in one PDF`);
+    } catch (e) {
+      toast.error((e as Error).message ?? 'Bulk PDF failed');
+    } finally {
+      setBulkExportLoading(false);
+    }
+  };
+
+  const handlePrintAll = async () => {
+    setBulkExportLoading(true);
+    try {
+      const all = await fetchAllInvoices();
+      if (!all.length) {
+        toast.error('No invoices to print');
+        return;
+      }
+      const pdfRows = all.map((row) => invoiceRowToPdfData(row, schoolName));
+      setPrintQueue(pdfRows);
+      setPrintModalOpen(true);
+    } catch (e) {
+      toast.error((e as Error).message ?? 'Could not prepare invoices for print');
+    } finally {
+      setBulkExportLoading(false);
+    }
+  };
+
   const openCreate = () => {
     setForm({
       studentId: '',
@@ -117,11 +204,64 @@ export default function InvoicesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
           <p className="text-muted-foreground">Fee invoices for the active school.</p>
         </div>
-        <Button type="button" onClick={openCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create invoice
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={bulkExportLoading || total === 0}
+            onClick={() => void handlePrintAll()}
+          >
+            <Printer className="mr-2 h-4 w-4" />
+            {bulkExportLoading ? 'Preparing…' : 'Print all'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={bulkExportLoading || total === 0}
+            onClick={() => void handleDownloadAllPdf()}
+          >
+            <FileStack className="mr-2 h-4 w-4" />
+            {bulkExportLoading ? 'Preparing…' : 'Download all PDFs'}
+          </Button>
+          <Button type="button" onClick={openCreate}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create invoice
+          </Button>
+        </div>
       </div>
+
+      <Modal
+        isOpen={printModalOpen}
+        onClose={() => {
+          setPrintModalOpen(false);
+          setPrintQueue(null);
+        }}
+        title="Print all invoices"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => {
+                setPrintModalOpen(false);
+                setPrintQueue(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleConfirmBulkPrint}>
+              <Printer className="mr-2 h-4 w-4" />
+              Print {printQueue?.length ?? 0} invoice(s)
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          {printQueue?.length ?? 0} invoice(s) are ready. Click <strong>Print</strong> to open
+          your browser&apos;s print dialog (one page per student).
+        </p>
+      </Modal>
 
       <ConfirmDialog
         isOpen={Boolean(pendingDelete)}
@@ -248,6 +388,25 @@ export default function InvoicesPage() {
                           {row.dueDate ? String(row.dueDate).slice(0, 10) : '—'}
                         </TableCell>
                         <TableCell className="text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePrint(row)}
+                          >
+                            <Printer className="mr-1 h-3.5 w-3.5" />
+                            Print
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadPdf(row)}
+                          >
+                            <Download className="mr-1 h-3.5 w-3.5" />
+                            PDF
+                          </Button>
                           <Button
                             type="button"
                             variant="outline"
@@ -257,6 +416,7 @@ export default function InvoicesPage() {
                           >
                             Delete
                           </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );

@@ -19,16 +19,32 @@ function matchesPrefix(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(`${prefix}/`);
 }
 
+/** Role home may be served under `/admin/principal` etc. after Next rewrites. */
+function matchesRoleHome(pathname: string, role: UserRole): boolean {
+  const home = ROLE_HOME[role];
+  if (!home) return false;
+  if (pathname === home || matchesPrefix(pathname, home)) return true;
+  if (home !== '/admin') {
+    const mirrored = `/admin${home}`;
+    if (pathname === mirrored || matchesPrefix(pathname, mirrored)) return true;
+  }
+  return false;
+}
+
 function pathToModule(path: string): ModuleKey | 'overview' | null {
   if (path === '/admin' || path === '/admin/') return 'overview';
+  for (const role of Object.keys(ROLE_HOME) as UserRole[]) {
+    const home = ROLE_HOME[role];
+    if (matchesPrefix(path, home)) return 'overview';
+    if (home !== '/admin') {
+      const mirrored = `/admin${home}`;
+      if (matchesPrefix(path, mirrored)) return 'overview';
+    }
+  }
   for (const [key, segment] of Object.entries(MODULE_PATHS) as [ModuleKey, string][]) {
     if (!segment) continue;
     const prefix = `/admin/${segment}`;
     if (matchesPrefix(path, prefix)) return key;
-  }
-  for (const role of Object.keys(ROLE_HOME) as UserRole[]) {
-    const home = ROLE_HOME[role];
-    if (matchesPrefix(path, home)) return 'overview';
   }
   return null;
 }
@@ -54,13 +70,19 @@ export function canAccessAdminPath(
 
   if (!role) return false;
 
-  const allowedHomes = Object.values(ROLE_HOME);
-  if (allowedHomes.some((h) => matchesPrefix(pathname, h))) {
-    return pathname === ROLE_HOME[role] || matchesPrefix(pathname, ROLE_HOME[role]);
+  if (matchesRoleHome(pathname, role)) {
+    return true;
   }
 
-  if (moduleKey === 'overview' || moduleKey === null) {
-    if (path === '/admin' || path === '/admin/') return role === 'SUPER_ADMIN';
+  if (path === '/admin' || path === '/admin/') {
+    return role === 'SUPER_ADMIN';
+  }
+
+  if (moduleKey === 'overview') {
+    return true;
+  }
+
+  if (moduleKey === null) {
     return true;
   }
 

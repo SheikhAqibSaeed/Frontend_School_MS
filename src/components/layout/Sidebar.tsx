@@ -43,12 +43,11 @@ export function Sidebar() {
             ) : (
               items.map((item) => {
                 const Icon = item.icon;
-                const isRoleHome =
-                  item.href === homeHref && (homeHref === '/admin' || homeHref.startsWith('/admin/'));
-                const isActive = isRoleHome
+                const isOverview = item.module === 'overview';
+                const isActive = isOverview
                   ? pathname === homeHref ||
-                    (homeHref !== '/admin' &&
-                      (pathname.startsWith('/dashboard') || pathname.startsWith('/admin/')))
+                    pathname.startsWith(`${homeHref}/`) ||
+                    (homeHref !== '/admin' && pathname === `/admin${homeHref}`)
                   : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
                   <RouterLink

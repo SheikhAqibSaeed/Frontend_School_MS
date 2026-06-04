@@ -59,7 +59,7 @@ export default function PaymentsPage() {
 
   const { data: studentsData } = useQuery({
     queryKey: ['students', 'pay-dd'],
-    queryFn: () => listStudents({ limit: 200 }),
+    queryFn: () => listStudents({ limit: 100 }),
   });
 
   const { data: invoicesData } = useQuery({

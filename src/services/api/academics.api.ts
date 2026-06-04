@@ -5,6 +5,21 @@ export async function listClasses(params?: { page?: number; limit?: number; sear
   return unwrapList<Record<string, unknown>>(res.data as never);
 }
 
+export async function createClass(body: Record<string, unknown>) {
+  const res = await apiClient.post<unknown>('/classes', body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function updateClass(id: string, body: Record<string, unknown>) {
+  const res = await apiClient.put<unknown>(`/classes/${id}`, body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function deleteClass(id: string) {
+  const res = await apiClient.delete<unknown>(`/classes/${id}`);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
 export async function listSections(params?: { page?: number; limit?: number; search?: string }) {
   const res = await apiClient.get<unknown>('/sections', { params });
   return unwrapList<Record<string, unknown>>(res.data as never);
@@ -45,9 +60,35 @@ export async function deleteSubject(id: string) {
   return unwrapData<Record<string, unknown>>(res.data as never);
 }
 
-export async function listAttendance(params?: { page?: number; limit?: number; search?: string }) {
+export async function listAttendance(params?: {
+  page?: number;
+  limit?: number;
+  date?: string;
+  classId?: string;
+  studentId?: string;
+}) {
   const res = await apiClient.get<unknown>('/attendance', { params });
   return unwrapList<Record<string, unknown>>(res.data as never);
+}
+
+export async function createAttendance(body: Record<string, unknown>) {
+  const res = await apiClient.post<unknown>('/attendance', body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function updateAttendance(id: string, body: Record<string, unknown>) {
+  const res = await apiClient.put<unknown>(`/attendance/${id}`, body);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function deleteAttendance(id: string) {
+  const res = await apiClient.delete<unknown>(`/attendance/${id}`);
+  return unwrapData<Record<string, unknown>>(res.data as never);
+}
+
+export async function bulkCreateAttendance(attendances: Record<string, unknown>[]) {
+  const res = await apiClient.post<unknown>('/attendance/bulk', { attendances });
+  return unwrapData<Record<string, unknown>>(res.data as never);
 }
 
 export async function listExams(params?: { page?: number; limit?: number; search?: string }) {

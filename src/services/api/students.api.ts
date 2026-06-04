@@ -1,6 +1,12 @@
 import { apiClient, unwrapList, unwrapData } from '@/lib/api-client';
 
-export async function listStudents(params?: { page?: number; limit?: number; search?: string }) {
+export async function listStudents(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  classId?: string;
+  sectionId?: string;
+}) {
   const res = await apiClient.get<unknown>('/students', { params });
   return unwrapList<Record<string, unknown>>(res.data as never);
 }

@@ -24,7 +24,7 @@ export default function AddStudentPage() {
 
   const { data: sectionsData } = useQuery({
     queryKey: ['sections', 'all'],
-    queryFn: () => listSections({ limit: 200 }),
+    queryFn: () => listSections({ limit: 100 }),
   });
 
   const form = useForm<StudentFormValues>({
@@ -48,8 +48,9 @@ export default function AddStudentPage() {
     if (!classId) return [];
     return items
       .filter((s) => {
-        const c = s.class as { id?: string } | undefined;
-        return c?.id === classId;
+        const rowClassId = s.classId != null ? String(s.classId) : undefined;
+        const nested = (s.class as { id?: string } | undefined)?.id;
+        return (rowClassId ?? nested) === classId;
       })
       .map((s) => ({ id: String(s.id), name: String(s.name ?? s.id) }));
   }, [sectionsData, classId]);

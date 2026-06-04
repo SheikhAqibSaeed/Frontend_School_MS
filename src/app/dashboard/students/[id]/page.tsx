@@ -42,7 +42,7 @@ export default function StudentProfilePage() {
 
   const { data: sectionsData } = useQuery({
     queryKey: ['sections', 'all'],
-    queryFn: () => listSections({ limit: 200 }),
+    queryFn: () => listSections({ limit: 100 }),
   });
 
   const form = useForm<StudentFormValues>({
@@ -57,8 +57,9 @@ export default function StudentProfilePage() {
     if (!classId) return [];
     return items
       .filter((s) => {
-        const c = s.class as { id?: string } | undefined;
-        return c?.id === classId;
+        const rowClassId = s.classId != null ? String(s.classId) : undefined;
+        const nested = (s.class as { id?: string } | undefined)?.id;
+        return (rowClassId ?? nested) === classId;
       })
       .map((s) => ({ id: String(s.id), name: String(s.name ?? s.id) }));
   }, [sectionsData, classId]);
@@ -87,7 +88,8 @@ export default function StudentProfilePage() {
       void queryClient.invalidateQueries({ queryKey: ['students', id] });
       void queryClient.invalidateQueries({ queryKey: ['students'] });
     },
-    onError: (err: Error) => toast.error(err.message ?? 'Update failed'),
+    onError: (err: Error & { apiMessage?: string }) =>
+      toast.error(err.apiMessage ?? err.message ?? 'Update failed'),
   });
 
   const deleteMutation = useMutation({

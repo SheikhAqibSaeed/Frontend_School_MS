@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ApiResponse } from '@/types';
 
 interface UseApiOptions {
@@ -18,13 +18,12 @@ export function useApi<T = any>(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const execute = async () => {
+  const execute = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await apiCall();
-      
-      // Check if response is ok
+
       if (!response.ok) {
         const errorText = await response.text();
         let errorMessage = `Request failed with status ${response.status}`;
@@ -43,7 +42,7 @@ export function useApi<T = any>(
       }
 
       const result: ApiResponse<T> = await response.json();
-      
+
       if (result.success && result.data !== undefined) {
         setData(result.data);
         options.onSuccess?.(result.data);
@@ -61,7 +60,9 @@ export function useApi<T = any>(
     } finally {
       setLoading(false);
     }
-  };
+    // apiCall is intentionally excluded — callers should pass stable deps to useApi's third argument
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
 
   useEffect(() => {
     if (options.immediate) {

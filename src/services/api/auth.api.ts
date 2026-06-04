@@ -1,4 +1,5 @@
 import { apiClient, unwrapData, unwrapList } from '@/lib/api-client';
+import type { SchoolOverview } from '@/lib/api/types';
 import type { LoginPayload, LoginResponse, RegisterPayload, RegisterSchoolOption } from '@/types/auth';
 
 export async function loginRequest(payload: LoginPayload) {
@@ -39,7 +40,7 @@ export async function listSchools(params?: { page?: number; limit?: number; sear
 
 export async function getReportsOverview() {
   const res = await apiClient.get<unknown>('/reports/overview');
-  return unwrapData<Record<string, unknown>>(res.data as never);
+  return unwrapData<SchoolOverview>(res.data as never);
 }
 
 export async function getResultsSummary() {

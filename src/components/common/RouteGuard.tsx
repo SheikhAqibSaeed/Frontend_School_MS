@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/store/auth-store';
+import { dashboardHrefForRole } from '@/config/navigation';
 import { canAccessAdminPath } from '@/lib/route-access';
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
@@ -29,15 +30,18 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     if (!hydrated) return;
 
     if (!isAuthenticated) {
-      const login = `/login?from=${encodeURIComponent(pathname)}`;
-      router.replace(login);
+      router.replace(`/login?from=${encodeURIComponent(pathname)}`);
       return;
     }
 
     if (!allowed) {
+      if (primaryRole) {
+        router.replace(dashboardHrefForRole(primaryRole));
+        return;
+      }
       router.replace('/forbidden');
     }
-  }, [hydrated, isAuthenticated, allowed, pathname, router]);
+  }, [hydrated, isAuthenticated, allowed, pathname, router, primaryRole]);
 
   if (!hydrated) {
     return (

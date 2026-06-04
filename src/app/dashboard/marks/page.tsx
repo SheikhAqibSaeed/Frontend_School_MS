@@ -71,7 +71,7 @@ export default function MarksPage() {
   });
   const { data: studentsData } = useQuery({
     queryKey: ['students', 'marks-dd'],
-    queryFn: () => listStudents({ limit: 200 }),
+    queryFn: () => listStudents({ limit: 100 }),
   });
   const { data: subjectsData } = useQuery({
     queryKey: ['subjects', 'marks-dd'],

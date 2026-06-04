@@ -80,6 +80,11 @@ export const useAuthStore = create<AuthState>()(
         user: s.user,
         primaryRole: s.primaryRole,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.user && !state.primaryRole) {
+          state.primaryRole = inferPrimaryRole(state.user);
+        }
+      },
     },
   ),
 );

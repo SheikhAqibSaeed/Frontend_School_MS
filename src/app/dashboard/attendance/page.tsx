@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -8,11 +10,15 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { LabeledSelect } from '@/components/ui/labeled-select';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Calendar, Plus, Edit, Trash2, Loader2 } from 'lucide-react';
-import { useApi, useMutation } from '@/hooks/useApi';
-import { getAttendance, createAttendance, updateAttendance, deleteAttendance, AttendanceFilters } from '@/services/api/attendance';
-import { getStudents } from '@/services/api/students';
-import { getClasses } from '@/services/api/classes';
+import { Calendar, Edit, Trash2, Loader2 } from 'lucide-react';
+import {
+  createAttendance,
+  deleteAttendance,
+  listAttendance,
+  listClasses,
+  updateAttendance,
+} from '@/services/api/academics.api';
+import { listStudents } from '@/services/api/students.api';
 import { formatDate } from '@/utils';
 
 function studentAdmissionNo(student: { admissionNo?: string; user?: { email?: string } } | null | undefined) {
@@ -37,6 +43,7 @@ function studentDisplayName(
 }
 
 export default function AttendancePage() {
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [classFilter, setClassFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,36 +56,47 @@ export default function AttendancePage() {
     remarks: '',
   });
 
-  // Fetch classes
-  const { data: classesData } = useApi(() => getClasses(), { immediate: true });
-  const classes = classesData || [];
+  const { data: classesData } = useQuery({
+    queryKey: ['classes', 'attendance-dd'],
+    queryFn: () => listClasses({ limit: 100 }),
+  });
+  const classes = classesData?.items ?? [];
 
-  // Fetch students for selected class
-  const { data: studentsData, execute: fetchStudents } = useApi(
-    () => getStudents({ classId: classFilter }),
-    { immediate: false }
-  );
-  
-  // Fetch students when class filter changes
+  const { data: studentsData, isFetching: studentsLoading } = useQuery({
+    queryKey: ['students', 'attendance', classFilter],
+    queryFn: () => listStudents({ classId: classFilter, limit: 100 }),
+    enabled: Boolean(classFilter),
+  });
+  const students = studentsData?.items ?? [];
+
+  const { data: attendanceData, isLoading: loading } = useQuery({
+    queryKey: ['attendance', selectedDate, classFilter],
+    queryFn: () =>
+      listAttendance({
+        date: selectedDate,
+        classId: classFilter || undefined,
+        limit: 100,
+      }),
+  });
+
   useEffect(() => {
-    if (classFilter) {
-      fetchStudents();
-    }
-  }, [classFilter, fetchStudents]);
-  
-  const students = studentsData || [];
+    setFormData((prev) => ({ ...prev, studentId: '' }));
+  }, [classFilter]);
 
-  // Fetch attendance records
-  const { data: attendanceData, loading, execute: refetchAttendance } = useApi(() => {
-    const filters: AttendanceFilters = {
-      date: selectedDate,
-    };
-    if (classFilter) filters.classId = classFilter;
-    return getAttendance(filters);
-  }, { immediate: true }, [selectedDate, classFilter]);
+  const invalidateAttendance = () => {
+    void queryClient.invalidateQueries({ queryKey: ['attendance'] });
+  };
 
-  const { mutate: createMutate, loading: creating } = useMutation(createAttendance, {
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createAttendance({
+        studentId: formData.studentId,
+        date: formData.date,
+        status: formData.status,
+        remarks: formData.remarks.trim() || undefined,
+      }),
     onSuccess: () => {
+      toast.success('Attendance saved');
       setIsModalOpen(false);
       setFormData({
         studentId: '',
@@ -86,31 +104,43 @@ export default function AttendancePage() {
         status: 'PRESENT',
         remarks: '',
       });
-      refetchAttendance();
+      invalidateAttendance();
     },
+    onError: (e: Error) => toast.error(e.message ?? 'Save failed'),
   });
 
-  const { mutate: updateMutate, loading: updating } = useMutation(
-    (data: any) => updateAttendance(selectedAttendance?.id, data),
-    {
-      onSuccess: () => {
-        setIsModalOpen(false);
-        setSelectedAttendance(null);
-        refetchAttendance();
-      },
-    }
-  );
+  const updateMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedAttendance?.id) throw new Error('No record selected');
+      return updateAttendance(selectedAttendance.id, {
+        studentId: formData.studentId,
+        date: formData.date,
+        status: formData.status,
+        remarks: formData.remarks.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast.success('Attendance updated');
+      setIsModalOpen(false);
+      setSelectedAttendance(null);
+      invalidateAttendance();
+    },
+    onError: (e: Error) => toast.error(e.message ?? 'Update failed'),
+  });
 
-  const { mutate: deleteMutate } = useMutation(
-    (id: string) => deleteAttendance(id),
-    {
-      onSuccess: () => {
-        setIsDeleteDialogOpen(false);
-        setSelectedAttendance(null);
-        refetchAttendance();
-      },
-    }
-  );
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteAttendance(id),
+    onSuccess: () => {
+      toast.success('Attendance deleted');
+      setIsDeleteDialogOpen(false);
+      setSelectedAttendance(null);
+      invalidateAttendance();
+    },
+    onError: (e: Error) => toast.error(e.message ?? 'Delete failed'),
+  });
+
+  const creating = createMutation.isPending;
+  const updating = updateMutation.isPending;
 
   const handleCreate = () => {
     setSelectedAttendance(null);
@@ -142,20 +172,19 @@ export default function AttendancePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedAttendance) {
-      await updateMutate(formData);
+      await updateMutation.mutateAsync();
     } else {
-      await createMutate(formData);
+      await createMutation.mutateAsync();
     }
   };
 
   const handleConfirmDelete = async () => {
     if (!selectedAttendance?.id) return;
-    await deleteMutate(selectedAttendance.id);
+    await deleteMutation.mutateAsync(selectedAttendance.id);
   };
 
-  const attendances = attendanceData || [];
+  const attendances = attendanceData?.items ?? [];
 
-  // Calculate statistics
   const presentCount = attendances.filter((a: any) => a.status === 'PRESENT').length;
   const absentCount = attendances.filter((a: any) => a.status === 'ABSENT').length;
   const lateCount = attendances.filter((a: any) => a.status === 'LATE').length;
@@ -166,7 +195,7 @@ export default function AttendancePage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Attendance</h1>
-        <Button onClick={handleCreate}>
+        <Button onClick={handleCreate} disabled={!classFilter}>
           <Calendar className="w-5 h-5 mr-2" />
           Mark Attendance
         </Button>
@@ -339,14 +368,21 @@ export default function AttendancePage() {
             value={formData.studentId}
             onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
             options={[
-              { value: '', label: 'Select Student' },
+              {
+                value: '',
+                label: studentsLoading
+                  ? 'Loading students...'
+                  : !classFilter
+                    ? 'Select a class first'
+                    : 'Select Student',
+              },
               ...students.map((s: any) => ({
                 value: s.id,
                 label: `${studentDisplayName(s)} (${studentAdmissionNo(s)})`,
               })),
             ]}
             required
-            disabled={!classFilter}
+            disabled={!classFilter || studentsLoading}
           />
           <Input
             label="Date *"

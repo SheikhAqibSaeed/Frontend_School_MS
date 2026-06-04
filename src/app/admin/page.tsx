@@ -1,6 +1,30 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { dashboardHrefForRole } from '@/config/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function AdminHomePage() {
+  const router = useRouter();
+  const { primaryRole, authUser, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!authUser?.isSuperAdmin) {
+      router.replace(dashboardHrefForRole(primaryRole));
+    }
+  }, [isAuthenticated, authUser?.isSuperAdmin, primaryRole, router]);
+
+  if (!authUser?.isSuperAdmin) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+        Redirecting to your dashboard…
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
